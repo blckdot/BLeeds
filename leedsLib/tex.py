@@ -23,6 +23,8 @@ from typing import List, Dict, Tuple, Optional, Sequence
 
 import numpy as np
 
+from .mh2_tex_links import validate_mh2_tex_links
+
 
 def read_u32(data: bytes, offset: int) -> int:
 
@@ -107,6 +109,9 @@ def parse_mh2_tex_entries(data: bytes) -> List[Mh2TexEntry]:
         raise ValueError("Unsupported Manhunt 2 TEX signature")
     if const_number != 1:
         raise ValueError("Unsupported Manhunt 2 TEX header version")
+    # All import paths, including Z2HM sidecars, must validate both directions
+    # and the sentinel before accepting any texture descriptor.
+    validate_mh2_tex_links(decoded)
     if texture_count > 65536:
         raise ValueError("Unreasonable Manhunt 2 TEX texture count")
 

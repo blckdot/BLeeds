@@ -11567,9 +11567,11 @@ class Manhunt2MdlReader:
                 stamp_bleeds_entity_type(mesh_object, entity_type)
 
     def score_object_info_chain(self, first_offset, last_offset):
-        if not self.is_valid_offset(first_offset, 0x40, self.OBJECT_INFO_SIZE):
+        # Some models stores its last object-info record at 0x30,
+        # immediately after the PMLC header. It needs not be beyond 0x40.
+        if not self.is_valid_offset(first_offset, self.HEADER_SIZE, self.OBJECT_INFO_SIZE):
             return -1000
-        if last_offset and not self.is_valid_offset(last_offset, 0x40, self.OBJECT_INFO_SIZE):
+        if last_offset and not self.is_valid_offset(last_offset, self.HEADER_SIZE, self.OBJECT_INFO_SIZE):
             return -500
 
         current_position = self.file.tell()
@@ -11579,7 +11581,7 @@ class Manhunt2MdlReader:
         count = 0
         try:
             while current_offset and current_offset not in visited and count < 64:
-                if not self.is_valid_offset(current_offset, 0x40, self.OBJECT_INFO_SIZE):
+                if not self.is_valid_offset(current_offset, self.HEADER_SIZE, self.OBJECT_INFO_SIZE):
                     score -= 10
                     break
                 visited.add(current_offset)
@@ -11589,12 +11591,12 @@ class Manhunt2MdlReader:
                     score -= 10
                     break
                 next_offset, previous_offset, parent_bone_offset, object_data_offset, flags, zero_field, object_type = struct.unpack("<7I", raw)
-                if self.is_valid_offset(object_data_offset, 0x40, self.OBJECT_HEADER_FIELD_END):
+                if self.is_valid_offset(object_data_offset, self.HEADER_SIZE, self.OBJECT_HEADER_FIELD_END):
                     score += 8
                 else:
                     score -= 20
                     break
-                if parent_bone_offset == 0 or self.is_valid_offset(parent_bone_offset, 0x40, 24):
+                if parent_bone_offset == 0 or self.is_valid_offset(parent_bone_offset, self.HEADER_SIZE, 24):
                     score += 2
                 if previous_offset == 0 or self.is_valid_offset(previous_offset, 0x20, 4):
                     score += 1
@@ -11676,7 +11678,9 @@ class Manhunt2MdlReader:
         return source_matrix, self.source_matrix_to_blender(source_matrix)
 
     def score_bone_record_layout(self, layout):
-        if not self.is_valid_offset(self.root_bone_offset, 0x40, int(layout["record_size"])):
+        # Some models can place the first bone at 0x30, immediately after
+        # the 40-byte PMLC header. A 0x40 lower bound drops their entire rig.
+        if not self.is_valid_offset(self.root_bone_offset, self.HEADER_SIZE, int(layout["record_size"])):
             return -1000
         current_position = self.file.tell()
         try:
@@ -11718,7 +11722,7 @@ class Manhunt2MdlReader:
         for pointer in (sibling_offset, parent_offset, child_offset):
             if pointer == 0:
                 score += 2
-            elif self.is_valid_offset(pointer, 0x40, min(24, int(layout["record_size"]))):
+            elif self.is_valid_offset(pointer, self.HEADER_SIZE, min(24, int(layout["record_size"]))):
                 score += 4
             else:
                 score -= 6
@@ -11754,7 +11758,7 @@ class Manhunt2MdlReader:
 
     def is_valid_bone_offset(self, value):
         record_size = int(self.bone_record_layout.get("record_size", 192))
-        return self.is_valid_offset(value, 0x40, record_size)
+        return self.is_valid_offset(value, self.HEADER_SIZE, record_size)
 
     def read_bones(self):
         if self.is_valid_bone_offset(self.root_bone_offset):
@@ -12102,7 +12106,7 @@ class Manhunt2MdlReader:
         object_infos = []
 
         while current_offset and current_offset not in visited:
-            if not self.is_valid_offset(current_offset, 0x40, self.OBJECT_INFO_SIZE):
+            if not self.is_valid_offset(current_offset, self.HEADER_SIZE, self.OBJECT_INFO_SIZE):
                 self.log("Object-info traversal stopped at invalid offset 0x{:08X}".format(current_offset))
                 break
             visited.add(current_offset)
@@ -12111,7 +12115,7 @@ class Manhunt2MdlReader:
             if len(raw) < self.OBJECT_INFO_SIZE:
                 break
             next_offset, previous_offset, parent_bone_offset, object_data_offset, flags, zero_field, object_type = struct.unpack("<7I", raw)
-            if not self.is_valid_offset(object_data_offset, 0x40, self.OBJECT_HEADER_FIELD_END):
+            if not self.is_valid_offset(object_data_offset, self.HEADER_SIZE, self.OBJECT_HEADER_FIELD_END):
                 self.log("Object-info traversal stopped: object data 0x{:08X} is invalid".format(object_data_offset))
                 break
 

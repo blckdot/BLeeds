@@ -87,6 +87,10 @@ class CW_MT_ExportChoice(Menu):
             text="R* Leeds: Texture Dictionary (.chk, .xtx, .tex)",
         )
         layout.operator(
+            "export_scene.bleeds_mh2_pc_mdl", 
+            text="Manhunt 2 PC Skin (.mdl)",
+        )
+        layout.operator(
             "export_scene.bleeds_dff",
             text="R* Studios: DFF (.dff)",
         )

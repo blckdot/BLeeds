@@ -672,3 +672,69 @@ class EXPORT_SCENE_OT_stories_mdl_ps2(bpy.types.Operator, ExportHelper):
 
         self.report({"INFO"}, f"Exported Stories MDL: {self.filepath}")
         return {"FINISHED"}
+
+
+class EXPORT_SCENE_OT_mh2_pc_mdl(bpy.types.Operator, ExportHelper):
+    bl_idname = "export_scene.bleeds_mh2_pc_mdl"
+    bl_label = "Export Manhunt 2 PC Skin"
+    bl_description = "Export a PC skin with its target skeleton and materials"
+    filename_ext = ".mdl"
+    filter_glob: StringProperty(default="*.mdl", options={"HIDDEN"})
+    export_textures: BoolProperty(
+        name="Export Matching TEX",
+        description="Save a matching PC TEX beside the MDL using material color images",
+        default=True,
+    )
+    rebuild_geometry: BoolProperty(
+        name="Rebuild Geometry",
+        description="Allow changed topology, triangulate polygons and split UV/normal/color seams",
+        default=False,
+    )
+    export_rest_pose: BoolProperty(
+        name="Export Edited Rest Skeleton",
+        description="Write edited rest bone matrices and regenerate inverse binds; requires Rebuild Geometry",
+        default=False,
+    )
+    normalize_repeat_uvs: BoolProperty(
+        name="Wrap Repeating UVs",
+        description="Split triangles at UV tile boundaries and wrap UVs into 0-1; requires Rebuild Geometry",
+        default=False,
+    )
+
+    def invoke(self, context, event):
+        from ..ops.mdl_mh2_exporter import find_root
+        try:
+            root = find_root(context)
+            source = str(root.get("bleeds_mdl_filepath", ""))
+            self.filepath = os.path.splitext(source)[0] + "_export_pc.mdl"
+        except ValueError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        col.prop(self, "export_textures")
+        col.prop(self, "rebuild_geometry")
+        col.prop(self, "export_rest_pose")
+        row = col.row()
+        row.enabled = self.rebuild_geometry
+        row.prop(self, "normalize_repeat_uvs")
+
+    def execute(self, context):
+        from ..ops.mdl_mh2_exporter import export_mh2_pc
+        try:
+            result = export_mh2_pc(context, self.filepath, rebuild_geometry=self.rebuild_geometry,
+                                   export_rest_pose=self.export_rest_pose,
+                                   normalize_repeat_uvs=self.normalize_repeat_uvs and self.rebuild_geometry,
+                                   export_textures=self.export_textures)
+        except Exception as exc:
+            self.report({"ERROR"}, "MH2 PC export failed: {}".format(exc))
+            return {"CANCELLED"}
+        print("[BLeeds MH2 PC export] {}".format(result))
+        suffix = "geometry rebuilt" if result["rebuild_geometry"] else ("byte-identical round trip" if result["byte_identical"] else "mesh edits written")
+        if self.export_textures:
+            suffix += "; TEX saved ({} textures)".format(result["texture_count"])
+        self.report({"INFO"}, "MH2 PC: {} parts, {} vertices; {}".format(result["parts"], result["vertices"], suffix))
+        return {"FINISHED"}

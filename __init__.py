@@ -565,6 +565,7 @@ _classes = [
     gui.IMPORT_SCENE_OT_stories_lvz,
     gui.EXPORT_SCENE_OT_stories_lvz_img,
     gui.EXPORT_SCENE_OT_stories_mdl_ps2,
+    gui.EXPORT_SCENE_OT_mh2_pc_mdl,
 ]
 
 def register_bleeds_texture_scene_props():
